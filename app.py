@@ -1,14 +1,16 @@
-# app.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import time
 
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Fall Detection Dashboard", page_icon="🩺", layout="wide")
 st.title("🩺 Real-Time IoT Fall Detection Dashboard")
 
-st.markdown("This dashboard shows **live fall detection** events from your BLE wearable.")
+st.markdown("""
+This dashboard shows **live fall detection** data coming from your BLE wearable device.
+""")
 
 # ------------------ SESSION STATE INIT ------------------
 if "log" not in st.session_state:
@@ -16,16 +18,14 @@ if "log" not in st.session_state:
 
 # ------------------ SETTINGS ------------------
 EVENT_FILE = "current_event.txt"
-refresh_sec = st.sidebar.slider("Auto-refresh every (sec)", 1, 10, 2)
-
-# Trigger a safe rerun every N seconds; returns an incrementing counter
-_ = st.autorefresh(interval=refresh_sec * 1000, key="data_refresh")
+refresh_sec = st.sidebar.slider("Refresh every (sec)", 1, 10, 2)
 
 # ------------------ UI PLACEHOLDERS ------------------
 status_box = st.empty()
 log_box = st.empty()
 
 def show_event(event: str):
+    """Render event box with color and emoji."""
     color_map = {
         "Normal": ("green", "🟢"),
         "About to Fall": ("orange", "🟠"),
@@ -45,8 +45,8 @@ def show_event(event: str):
         unsafe_allow_html=True
     )
 
-# ------------------ MAIN LOGIC ------------------
-st.subheader("Live Status")
+# ------------------ MAIN LOOP ------------------
+st.info("⚙️ The dashboard will refresh automatically. Keep your BLE listener running.")
 
 if os.path.exists(EVENT_FILE):
     try:
@@ -57,7 +57,7 @@ if os.path.exists(EVENT_FILE):
         st.warning(f"Could not read event file: {e}")
 else:
     event = "Waiting..."
-    st.info("⚠️ Waiting for BLE listener to create `current_event.txt` ...")
+    st.warning("⚠️ Waiting for BLE listener to create `current_event.txt` ...")
 
 show_event(event)
 
@@ -72,7 +72,11 @@ if event != "Waiting...":
 st.subheader("📋 Event Log")
 log_box.dataframe(st.session_state.log[::-1], use_container_width=True)
 
-# Download button for the current session's log
 if not st.session_state.log.empty:
     csv = st.session_state.log.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Log (CSV)", csv, "fall_events_session.csv", "text/csv")
+
+# ------------------ MANUAL AUTO-REFRESH ------------------
+st.caption(f"🔄 Auto-refresh every {refresh_sec} seconds.")
+time.sleep(refresh_sec)
+st.experimental_rerun()
