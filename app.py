@@ -67,16 +67,17 @@ while run:
 run = st.checkbox("Start Monitoring", False)
 
 if run:
-    while True:
+    # Run loop while checkbox remains checked
+    while st.session_state.get("run_state", True):
+        if not st.session_state.get("run_state", True):
+            break
         event, icon, conf = classify_event()
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Append to session log
         new_entry = pd.DataFrame([[timestamp, person_id, event, f"{conf*100:.1f}%"]],
                                  columns=["Timestamp", "Person_ID", "Event", "Confidence"])
         st.session_state.log = pd.concat([st.session_state.log, new_entry], ignore_index=True)
 
-        # ----- Display Current Status -----
         color_map = {"Normal":"green","About to Fall":"orange","Fall Detected":"red"}
         placeholder_status.markdown(f"""
         <div style='background-color:{color_map[event]};padding:1.2em;border-radius:12px;text-align:center'>
@@ -86,14 +87,11 @@ if run:
         </div>
         """, unsafe_allow_html=True)
 
-        # ----- Show Rolling Log -----
         placeholder_log.dataframe(st.session_state.log[::-1], use_container_width=True)
-
-        # ----- Basic Counts -----
         counts = st.session_state.log["Event"].value_counts()
         placeholder_chart.bar_chart(counts)
-
         time.sleep(refresh_rate)
 else:
     st.info("✅ Click 'Start Monitoring' to begin real-time event logging.")
+
 
