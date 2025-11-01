@@ -10,23 +10,16 @@ st.title("🩺 Real-Time IoT Fall Detection Dashboard")
 
 st.markdown("""
 This dashboard shows **live fall detection** data from your BLE wearable device.
-It reads automatically from `fall_data.csv` written by your BLE listener script.
+It reads from `fall_data.csv` saved by your BLE listener script.
 """)
 
 # ------------------ SETTINGS ------------------
 CSV_FILE = "fall_data.csv"
-refresh_sec = st.sidebar.slider("Refresh interval (seconds)", 1, 10, 2)
-
-# ------------------ TIMEZONE ------------------
 IST = pytz.timezone("Asia/Kolkata")
 
-# ------------------ SESSION STATE INIT ------------------
+# ------------------ SESSION STATE ------------------
 if "log" not in st.session_state:
     st.session_state.log = pd.DataFrame(columns=["Timestamp", "Event"])
-
-# ------------------ UI PLACEHOLDERS ------------------
-status_box = st.empty()
-log_box = st.empty()
 
 # ------------------ HELPER FUNCTION ------------------
 def show_event(event: str):
@@ -37,7 +30,7 @@ def show_event(event: str):
     }
     color, emoji = color_map.get(event, ("gray", "⚪"))
     current_time = datetime.now(IST).strftime("%H:%M:%S")
-    status_box.markdown(
+    st.markdown(
         f"""
         <div style='background-color:{color};
                     padding:1em;
@@ -50,47 +43,38 @@ def show_event(event: str):
         unsafe_allow_html=True
     )
 
-# ------------------ READ CSV ------------------
-if os.path.exists(CSV_FILE):
-    try:
+# ------------------ FILE READER ------------------
+def read_latest_event():
+    if os.path.exists(CSV_FILE):
         df = pd.read_csv(CSV_FILE)
         if not df.empty:
             event = df.iloc[-1]["Event"]
             timestamp = df.iloc[-1]["Timestamp"]
-            show_event(event)
-
-            # Update session log only if event changed
-            if len(st.session_state.log) == 0 or st.session_state.log.iloc[-1]["Event"] != event:
-                new_entry = {"Timestamp": timestamp, "Event": event}
-                st.session_state.log = pd.concat(
-                    [st.session_state.log, pd.DataFrame([new_entry])],
-                    ignore_index=True
-                )
+            return event, timestamp
         else:
-            st.warning("⚠️ CSV exists but has no data yet.")
-            event = "Waiting..."
-    except Exception as e:
-        st.error(f"Error reading CSV: {e}")
-        event = "Waiting..."
-else:
-    st.warning("⚠️ `fall_data.csv` not found. Run BLE listener to start logging events.")
-    event = "Waiting..."
+            return "Waiting...", None
+    else:
+        return "Waiting...", None
 
-# ------------------ DISPLAY ------------------
+# ------------------ MAIN UI ------------------
+st.sidebar.header("Controls")
+if st.sidebar.button("🔄 Refresh Now"):
+    st.session_state.refreshed = True
+
+event, timestamp = read_latest_event()
+show_event(event)
+
+# ------------------ EVENT LOG ------------------
+if event != "Waiting...":
+    if len(st.session_state.log) == 0 or st.session_state.log.iloc[-1]["Event"] != event:
+        st.session_state.log.loc[len(st.session_state.log)] = [timestamp, event]
+
 st.subheader("📋 Event Log")
 if not st.session_state.log.empty:
     st.session_state.log["Timestamp"] = pd.to_datetime(st.session_state.log["Timestamp"])
     st.session_state.log = st.session_state.log.sort_values(by="Timestamp", ascending=False)
-    log_box.dataframe(st.session_state.log, use_container_width=True)
+    st.dataframe(st.session_state.log, use_container_width=True)
 else:
     st.info("No events logged yet.")
 
-# ------------------ REFRESH ------------------
-# Stable refresh using meta tag (no rerun crash)
-refresh_html = f"""
-<meta http-equiv="refresh" content="{refresh_sec}">
-<p style='text-align:center;color:gray'>
-🔄 Auto-refreshing every {refresh_sec} seconds (IST).
-</p>
-"""
-st.markdown(refresh_html, unsafe_allow_html=True)
+st.caption("Click **🔄 Refresh Now** in the sidebar to update manually.")
