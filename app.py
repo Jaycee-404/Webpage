@@ -17,12 +17,43 @@ It reads from `fall_data.csv` saved by your BLE listener script.
 CSV_FILE = "fall_data.csv"
 IST = pytz.timezone("Asia/Kolkata")
 
-# ------------------ SESSION STATE ------------------
+# ------------------ LOGIN SECTION ------------------
+st.sidebar.header("Login")
+
+# Sample registered users
+registered_users = {
+    "USER_001": "Ramesh",
+    "USER_002": "Priya",
+    "USER_003": "Sundar",
+}
+
+# Input user ID
+user_id = st.sidebar.text_input("Enter your ID (e.g., USER_001)")
+login_btn = st.sidebar.button("🔓 Login")
+
+# Initialize login session
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if login_btn:
+    if user_id in registered_users:
+        st.session_state.logged_in = True
+        st.sidebar.success(f"Welcome, {registered_users[user_id]} 👋")
+    else:
+        st.sidebar.error("❌ Invalid ID. Contact admin to register your device.")
+
+# Stop the app until logged in
+if not st.session_state.logged_in:
+    st.warning("Please log in with your user ID to view the dashboard.")
+    st.stop()
+
+# ------------------ SESSION STATE FOR LOG ------------------
 if "log" not in st.session_state:
     st.session_state.log = pd.DataFrame(columns=["Timestamp", "Event"])
 
 # ------------------ HELPER FUNCTION ------------------
 def show_event(event: str):
+    """Display the current event box with color coding."""
     color_map = {
         "Normal": ("green", "🟢"),
         "About to Fall": ("orange", "🟠"),
@@ -45,6 +76,7 @@ def show_event(event: str):
 
 # ------------------ FILE READER ------------------
 def read_latest_event():
+    """Read the most recent event from the CSV file."""
     if os.path.exists(CSV_FILE):
         df = pd.read_csv(CSV_FILE)
         if not df.empty:
@@ -69,7 +101,7 @@ if event != "Waiting...":
     if len(st.session_state.log) == 0 or st.session_state.log.iloc[-1]["Event"] != event:
         st.session_state.log.loc[len(st.session_state.log)] = [timestamp, event]
 
-st.subheader("📋 Event Log")
+st.subheader(f"📋 Event Log for {registered_users[user_id]}")
 if not st.session_state.log.empty:
     st.session_state.log["Timestamp"] = pd.to_datetime(st.session_state.log["Timestamp"])
     st.session_state.log = st.session_state.log.sort_values(by="Timestamp", ascending=False)
