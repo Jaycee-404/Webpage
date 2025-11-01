@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 import pytz
 import os
-import time
 
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Fall Detection Dashboard", page_icon="🩺", layout="wide")
@@ -11,7 +10,7 @@ st.title("🩺 Real-Time IoT Fall Detection Dashboard")
 
 st.markdown("""
 This dashboard shows **live fall detection** data from your BLE wearable device.
-It reads automatically from `fall_data.csv` saved by your BLE listener script.
+It reads automatically from `fall_data.csv` written by your BLE listener script.
 """)
 
 # ------------------ SETTINGS ------------------
@@ -51,7 +50,7 @@ def show_event(event: str):
         unsafe_allow_html=True
     )
 
-# ------------------ MAIN LOOP ------------------
+# ------------------ READ CSV ------------------
 if os.path.exists(CSV_FILE):
     try:
         df = pd.read_csv(CSV_FILE)
@@ -60,7 +59,7 @@ if os.path.exists(CSV_FILE):
             timestamp = df.iloc[-1]["Timestamp"]
             show_event(event)
 
-            # Add new rows to session log only if changed
+            # Update session log only if event changed
             if len(st.session_state.log) == 0 or st.session_state.log.iloc[-1]["Event"] != event:
                 new_entry = {"Timestamp": timestamp, "Event": event}
                 st.session_state.log = pd.concat(
@@ -68,7 +67,7 @@ if os.path.exists(CSV_FILE):
                     ignore_index=True
                 )
         else:
-            st.warning("⚠️ CSV exists but is empty. Waiting for BLE listener to write data.")
+            st.warning("⚠️ CSV exists but has no data yet.")
             event = "Waiting..."
     except Exception as e:
         st.error(f"Error reading CSV: {e}")
@@ -87,6 +86,11 @@ else:
     st.info("No events logged yet.")
 
 # ------------------ REFRESH ------------------
-st.caption(f"🔄 Auto-refreshing every {refresh_sec} seconds (local IST time).")
-time.sleep(refresh_sec)
-st.experimental_rerun()
+# Stable refresh using meta tag (no rerun crash)
+refresh_html = f"""
+<meta http-equiv="refresh" content="{refresh_sec}">
+<p style='text-align:center;color:gray'>
+🔄 Auto-refreshing every {refresh_sec} seconds (IST).
+</p>
+"""
+st.markdown(refresh_html, unsafe_allow_html=True)
