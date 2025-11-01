@@ -42,33 +42,29 @@ def show_event(event):
         unsafe_allow_html=True
     )
 
-# ------------------ MAIN LOOP ------------------
-st.markdown("### Live Status")
-st.info("⏳ Waiting for updates from BLE device...")
-
+# ------------------ MAIN LOGIC ------------------
 EVENT_FILE = "current_event.txt"
-refresh_rate = 1  # seconds
+refresh_rate = 2  # seconds
 
-while True:
-    if os.path.exists(EVENT_FILE):
-        with open(EVENT_FILE, "r") as f:
-            event = f.read().strip()
+# Safe refresh every few seconds
+count = st.experimental_data_editor(st_autorefresh := st.autorefresh(interval=refresh_rate * 1000, key="data_refresh"))
 
-        # Only log new events
-        if len(st.session_state.log) == 0 or st.session_state.log.iloc[-1]["Event"] != event:
-            new_row = {"Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Event": event}
-            st.session_state.log = pd.concat(
-                [st.session_state.log, pd.DataFrame([new_row])],
-                ignore_index=True
-            )
+if os.path.exists(EVENT_FILE):
+    with open(EVENT_FILE, "r") as f:
+        event = f.read().strip()
 
-        show_event(event)
+    # Only log new events
+    if len(st.session_state.log) == 0 or st.session_state.log.iloc[-1]["Event"] != event:
+        new_row = {"Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Event": event}
+        st.session_state.log = pd.concat(
+            [st.session_state.log, pd.DataFrame([new_row])],
+            ignore_index=True
+        )
 
-        # Display Event Log
-        st.markdown("### 📋 Event Log")
-        log_box.dataframe(st.session_state.log[::-1], use_container_width=True)
-    else:
-        st.warning("⚠️ Waiting for BLE listener to create `current_event.txt`...")
+    show_event(event)
 
-    time.sleep(refresh_rate)
-    st.experimental_rerun()
+    # Display Event Log
+    st.markdown("### 📋 Event Log")
+    log_box.dataframe(st.session_state.log[::-1], use_container_width=True)
+else:
+    st.warning("⚠️ Waiting for BLE listener to create `current_event.txt`...")
